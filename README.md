@@ -1,37 +1,68 @@
-# 💸 Mini Expense System
+# Full-Stack Expense Tracker
 
-A production-grade full-stack expense tracking application built with React, Node.js, Express, and SQLite.
+A production-grade expense tracking system built with React + Node.js/Express + SQLite.
 
-## ✨ Features
+## Live Demo
 
-- **True Idempotency:** Backend prevents duplicate submissions using generated `Idempotency-Key` headers.
-- **Financial Math Safety:** Currency is converted and stored as integers (paise/cents) to prevent floating-point errors.
-- **Real-time Filtering & Sorting:** Backend-driven API routes for fast data retrieval.
-- **Responsive UI:** Built with Vite and React, featuring immediate loading states and graceful error handling.
+- **Frontend:** https://expense-frontend-z5ip.onrender.com
+- **API:** https://expense-api-py0v.onrender.com
 
-## 🛠️ Tech Stack
+## Technical Highlights
 
-- **Frontend:** React, Vite
+- **Atomic idempotency** — `INSERT OR IGNORE` prevents duplicate expenses on retry
+- **Integer money storage** — amounts stored in paise to avoid floating-point bugs
+- **Zod validation** — schema-based request validation with structured error responses
+- **Currency utility** — centralized rupee/paise conversion using `Intl.NumberFormat`
+- **DB indexing** — indexes on `category` and `date` for query performance
+- **Pagination** — GET /expenses supports `limit` and `offset`
+- **CORS-restricted** — backend only accepts requests from the deployed frontend
+
+## API Reference
+
+### POST /expenses
+
+\`\`\`
+Headers:
+Content-Type: application/json
+Idempotency-Key: <uuid>
+
+Body:
+{ amount: number, category: "food"|"travel"|"utilities"|"other",
+description: string, date: "YYYY-MM-DD" }
+
+Returns 201 on create, 200 if already processed
+\`\`\`
+
+### GET /expenses
+
+\`\`\`
+Query params:
+?category=food
+?sort=date_desc|date_asc|amount_desc
+?limit=100&offset=0
+\`\`\`
+
+## Stack
+
+- **Frontend:** React (Vite)
 - **Backend:** Node.js, Express
-- **Database:** SQLite (via `better-sqlite3`)
+- **Database:** SQLite (better-sqlite3)
+- **Validation:** Zod
+- **Hosting:** Render
 
-## 🚀 How to Run Locally
-
-### 1. Start the Backend
+## Run Locally
 
 \`\`\`bash
+
+# Backend
+
 cd mini-expense-system
 npm install
 node server.js
-\`\`\`
-_(Runs on http://localhost:3000)_
 
-### 2. Start the Frontend
+# Frontend
 
-Open a new terminal window:
-\`\`\`bash
 cd expense-frontend
 npm install
 npm run dev
 \`\`\`
-_(Runs on http://localhost:5173)_
