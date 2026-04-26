@@ -5,7 +5,7 @@ import CurrencyUtil from "./utils/currency";
 const API_BASE_URL =
   window.location.hostname === "localhost"
     ? "http://localhost:3000"
-    : "https://your-backend-url.onrender.com"; // replace after Step 3
+    : "https://expense-api-py0v.onrender.com"; // replace after Step 3
 
 function App() {
   const [expenses, setExpenses] = useState([]);

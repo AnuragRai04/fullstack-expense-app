@@ -13,7 +13,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://your-frontend-url.onrender.com", // replace after Step 3
+      "https://expense-frontend-z5ip.onrender.com", // replace after Step 3
     ],
   }),
 );
