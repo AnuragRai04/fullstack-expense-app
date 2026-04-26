@@ -8,8 +8,18 @@ const { rupeesToPaise } = require("./utils/currency");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// ✅ Allow both local dev and deployed frontend
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://your-frontend-url.onrender.com", // replace after Step 3
+    ],
+  }),
+);
 app.use(express.json());
+
+// rest of your file is unchanged...
 
 // ─────────────────────────────────────────
 // ERROR HELPER

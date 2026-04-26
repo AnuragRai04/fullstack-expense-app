@@ -1,25 +1,28 @@
 import { useState, useEffect } from "react";
 import CurrencyUtil from "./utils/currency";
 
-function App() {
-  // --- STATE ---
-  const [expenses, setExpenses] = useState([]);
+// ✅ Switches automatically between local and production
+const API_BASE_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:3000"
+    : "https://your-backend-url.onrender.com"; // replace after Step 3
 
+function App() {
+  const [expenses, setExpenses] = useState([]);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("food");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
-
   const [filterCategory, setFilterCategory] = useState("");
   const [statusMessage, setStatusMessage] = useState({ text: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  // --- ACTIONS ---
   const fetchExpenses = async () => {
     setIsFetching(true);
     try {
-      let url = "http://localhost:3000/expenses?sort=date_desc";
+      // ✅ Uses API_BASE_URL
+      let url = `${API_BASE_URL}/expenses?sort=date_desc`;
       if (filterCategory) {
         url += `&category=${filterCategory}`;
       }
@@ -28,7 +31,6 @@ function App() {
       if (!response.ok) throw new Error("Failed to fetch data");
 
       const data = await response.json();
-      // Backend now returns { count, limit, offset, data: [...] }
       setExpenses(data.data ?? data);
     } catch (error) {
       console.error("Failed to fetch expenses:", error);
@@ -56,7 +58,8 @@ function App() {
         : `req_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
     try {
-      const response = await fetch("http://localhost:3000/expenses", {
+      // ✅ Uses API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/expenses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,12 +87,8 @@ function App() {
       } else if (response.status === 200) {
         setStatusMessage({ text: "✅ " + result.message, type: "success" });
       } else {
-        // Structured error from backend: { error: { code, message, field } }
         const errMsg = result.error?.message ?? result.error ?? "Unknown error";
-        setStatusMessage({
-          text: "❌ " + errMsg,
-          type: "error",
-        });
+        setStatusMessage({ text: "❌ " + errMsg, type: "error" });
       }
     } catch (error) {
       setStatusMessage({
@@ -101,10 +100,8 @@ function App() {
     }
   };
 
-  // Total from currently visible expenses (amount stored as paise)
   const totalInPaise = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-  // --- UI RENDER ---
   return (
     <div
       style={{
@@ -127,7 +124,6 @@ function App() {
         Mini Expense System
       </h1>
 
-      {/* 1. INPUT FORM */}
       <div
         style={{
           background: "#252526",
@@ -156,8 +152,6 @@ function App() {
             style={inputStyle}
             disabled={isSubmitting}
           />
-
-          {/* ✅ Category values now match backend Zod enum exactly */}
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -169,7 +163,6 @@ function App() {
             <option value="utilities">Utilities</option>
             <option value="other">Other</option>
           </select>
-
           <input
             type="text"
             placeholder="Description"
@@ -205,7 +198,6 @@ function App() {
             {isSubmitting ? "Saving..." : "Save Expense"}
           </button>
         </form>
-
         {statusMessage.text && (
           <p
             style={{
@@ -219,7 +211,6 @@ function App() {
         )}
       </div>
 
-      {/* 2. FILTERS & TOTAL */}
       <div
         style={{
           display: "flex",
@@ -233,7 +224,6 @@ function App() {
           <label style={{ fontWeight: "bold", marginRight: "10px" }}>
             Filter by Category:
           </label>
-          {/* ✅ Filter values match backend enum too */}
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
@@ -252,14 +242,11 @@ function App() {
             <option value="other">Other</option>
           </select>
         </div>
-
-        {/* ✅ CurrencyUtil handles paise → ₹ formatting */}
         <h2 style={{ margin: 0, color: "#51cf66" }}>
           Total: {CurrencyUtil.formatINR(totalInPaise)}
         </h2>
       </div>
 
-      {/* 3. EXPENSE TABLE */}
       <table
         style={{
           width: "100%",
@@ -297,7 +284,6 @@ function App() {
                 <td style={tdStyle}>{exp.date}</td>
                 <td style={tdStyle}>{exp.category}</td>
                 <td style={tdStyle}>{exp.description}</td>
-                {/* ✅ CurrencyUtil for per-row display */}
                 <td style={tdStyle}>{CurrencyUtil.formatINR(exp.amount)}</td>
               </tr>
             ))
