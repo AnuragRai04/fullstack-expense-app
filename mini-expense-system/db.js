@@ -1,26 +1,23 @@
 const Database = require("better-sqlite3");
-const path = require("path");
+const db = new Database("expenses.db");
 
-const dbPath = path.join(__dirname, "expenses.db");
-const db = new Database(dbPath);
+// Create table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS expenses (
+    id TEXT PRIMARY KEY,
+    amount INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    idempotency_key TEXT UNIQUE NOT NULL
+  );
+`);
 
-const initializeDB = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS expenses (
-      id TEXT PRIMARY KEY,
-      amount INTEGER,
-      category TEXT,
-      description TEXT,
-      date TEXT,
-      created_at TEXT,
-      idempotency_key TEXT UNIQUE
-    )
-  `;
-
-  db.exec(createTableQuery);
-  console.log("Database initialized and 'expenses' table is ready.");
-};
-
-initializeDB();
+// Performance indexes
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
+  CREATE INDEX IF NOT EXISTS idx_expenses_date_desc ON expenses(date DESC);
+`);
 
 module.exports = db;

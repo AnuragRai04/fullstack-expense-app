@@ -3,6 +3,7 @@ const cors = require("cors");
 const crypto = require("crypto");
 const { z } = require("zod");
 const db = require("./db");
+const { rupeesToPaise } = require("./utils/currency");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,7 +60,6 @@ const validate = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
 
   if (!result.success) {
-    // Zod v3: result.error.errors — Zod v4: result.error.issues
     const issues = result.error.issues ?? result.error.errors ?? [];
     const first = issues[0];
 
@@ -98,7 +98,8 @@ app.post("/expenses", validate(expenseSchema), (req, res) => {
 
     const { amount, category, description, date } = req.body;
 
-    const amountInSmallestUnit = Math.round(amount * 100);
+    // ✅ Currency utility handles rupees → paise
+    const amountInSmallestUnit = rupeesToPaise(amount);
     const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
 
@@ -150,9 +151,8 @@ app.get("/expenses", (req, res) => {
   try {
     let { category, sort, limit, offset } = req.query;
 
-    // Safe parse with defaults and hard cap
     limit = Math.min(parseInt(limit) || 100, 500);
-    offset = Math.max(parseInt(offset) || 0, 0); // guard against negative offset
+    offset = Math.max(parseInt(offset) || 0, 0);
 
     let sql = "SELECT * FROM expenses";
     const params = [];
@@ -190,7 +190,7 @@ app.get("/expenses", (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// GLOBAL ERROR HANDLER (catches unhandled throws)
+// GLOBAL ERROR HANDLER
 // ─────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(err.stack);
