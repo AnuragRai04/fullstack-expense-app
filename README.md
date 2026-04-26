@@ -1,68 +1,59 @@
-# Full-Stack Expense Tracker
+# 💸 Production-Grade Expense System
 
-A production-grade expense tracking system built with React + Node.js/Express + SQLite.
+A full-stack expense tracking application built with a focus on data integrity, concurrency safety, and professional API standards.
 
-## Live Demo
+## 🌐 Live Demo
 
-- **Frontend:** https://expense-frontend-z5ip.onrender.com
-- **API:** https://expense-api-py0v.onrender.com
+- **Frontend:** [https://expense-frontend-z5ip.onrender.com](https://expense-frontend-z5ip.onrender.com)
+- **API:** [https://expense-api-py0v.onrender.com](https://expense-api-py0v.onrender.com)
 
-## Technical Highlights
+## 🚀 Technical Highlights
 
-- **Atomic idempotency** — `INSERT OR IGNORE` prevents duplicate expenses on retry
-- **Integer money storage** — amounts stored in paise to avoid floating-point bugs
-- **Zod validation** — schema-based request validation with structured error responses
-- **Currency utility** — centralized rupee/paise conversion using `Intl.NumberFormat`
-- **DB indexing** — indexes on `category` and `date` for query performance
-- **Pagination** — GET /expenses supports `limit` and `offset`
-- **CORS-restricted** — backend only accepts requests from the deployed frontend
+- **Atomic Idempotency:** Implements `INSERT OR IGNORE` logic to prevent race conditions and duplicate expenses during network retries.
+- **Integer Money Storage:** Amounts are stored as integers (paise) to eliminate floating-point precision bugs common in JavaScript financials.
+- **Zod Validation:** Strict schema-based request validation with structured, frontend-friendly error responses.
+- **Currency Utility:** Centralized conversion and formatting using `Intl.NumberFormat` for consistent INR display.
+- **DB Indexing:** Performance-optimized with indexes on `category` and `date` for $O(\log n)$ query speeds.
+- **Pagination:** High-performance `GET /expenses` endpoint supporting `limit` and `offset` query parameters.
+- **CORS-Restricted:** Backend security configured to only accept traffic from the verified production frontend.
 
-## API Reference
+## 🧠 Engineering Journal: Design & Trade-offs
 
-### POST /expenses
+### Key Design Decisions
 
-\`\`\`
-Headers:
-Content-Type: application/json
-Idempotency-Key: <uuid>
+- **SQLite + better-sqlite3:** Chosen for a zero-configuration developer experience. It provides a portable, single-file database that is perfect for demonstration and local auditing.
+- **Atomic Concurrency:** Leveraged the database engine's `UNIQUE` constraint for thread-safe idempotency instead of expensive application-level locking.
+- **Declarative Validation:** Used Zod to decouple validation logic from business controllers, ensuring the core logic only ever touches "clean" data.
 
-Body:
-{ amount: number, category: "food"|"travel"|"utilities"|"other",
-description: string, date: "YYYY-MM-DD" }
+### ⚖️ Trade-offs (Timebox Decisions)
 
-Returns 201 on create, 200 if already processed
-\`\`\`
+- **Single-File Backend:** Logic is kept primarily in `server.js` to prioritize rapid iteration on core features like Zod and Pagination over complex folder nesting.
+- **Local Persistence:** Prioritized a working SQLite setup over a cloud-hosted PostgreSQL to ensure the submission is self-contained and easily auditable.
 
-### GET /expenses
+### 🚫 Intentional Omissions
 
-\`\`\`
-Query params:
-?category=food
-?sort=date_desc|date_asc|amount_desc
-?limit=100&offset=0
-\`\`\`
+- **User Authentication:** Focused heavily on the "Hardening" of data intake and storage; Auth (JWT/OAuth) was deferred to keep the scope focused on API reliability.
+- **Persistence on Render:** Render’s free tier uses an ephemeral filesystem. While the app is production-ready, data resets on server restart—a migration to a hosted DB (like Supabase) is the designated next step for scaling.
 
-## Stack
+## 🛠️ Stack
 
 - **Frontend:** React (Vite)
-- **Backend:** Node.js, Express
+- **Backend:** Node.js, Express, Zod
 - **Database:** SQLite (better-sqlite3)
-- **Validation:** Zod
 - **Hosting:** Render
 
-## Run Locally
+## ⚙️ Run Locally
 
-\`\`\`bash
+1. **Backend**
 
-# Backend
+   ```bash
+   cd mini-expense-system
+   npm install
+   node server.js
 
-cd mini-expense-system
-npm install
-node server.js
+   ```
 
-# Frontend
-
-cd expense-frontend
-npm install
-npm run dev
-\`\`\`
+2. **Frontend**
+   cd expense-frontend
+   npm install
+   npm run dev
