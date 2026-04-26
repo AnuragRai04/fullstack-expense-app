@@ -11,9 +11,20 @@ app.use(cors());
 app.use(express.json());
 
 // ─────────────────────────────────────────
+// ERROR HELPER
+// ─────────────────────────────────────────
+const sendError = (res, status, code, message, field = null) => {
+  return res.status(status).json({
+    error: {
+      code,
+      message,
+      ...(field && { field }),
+    },
+  });
+};
+
+// ─────────────────────────────────────────
 // ZOD SCHEMA
-// amount: rupees from frontend (e.g. 450.50)
-// max: ₹1,00,000 (1 lakh) — adjust if you meant 1 crore (1,00,00,000)
 // ─────────────────────────────────────────
 const expenseSchema = z.object({
   amount: z
@@ -42,7 +53,7 @@ const expenseSchema = z.object({
 });
 
 // ─────────────────────────────────────────
-// REUSABLE VALIDATION MIDDLEWARE
+// VALIDATION MIDDLEWARE
 // ─────────────────────────────────────────
 const validate = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
@@ -50,16 +61,15 @@ const validate = (schema) => (req, res, next) => {
   if (!result.success) {
     // Zod v3: result.error.errors — Zod v4: result.error.issues
     const issues = result.error.issues ?? result.error.errors ?? [];
+    const first = issues[0];
 
-    const details = issues.map((e) => ({
-      field: e.path[0] ?? "unknown",
-      message: e.message,
-    }));
-
-    return res.status(400).json({
-      error: "Validation failed",
-      details,
-    });
+    return sendError(
+      res,
+      400,
+      "VALIDATION_ERROR",
+      first?.message ?? "Invalid request body",
+      first?.path?.[0] ?? null,
+    );
   }
 
   req.body = result.data;
@@ -75,23 +85,23 @@ app.get("/health", (req, res) => {
 
 app.post("/expenses", validate(expenseSchema), (req, res) => {
   try {
-    // Idempotency check (unchanged)
     const idempotencyKey = req.headers["idempotency-key"];
     if (!idempotencyKey) {
-      return res
-        .status(400)
-        .json({ error: "Idempotency-Key header is required" });
+      return sendError(
+        res,
+        400,
+        "MISSING_HEADER",
+        "Idempotency-Key header is required",
+        "Idempotency-Key",
+      );
     }
 
-    // req.body is already validated and normalized by middleware
     const { amount, category, description, date } = req.body;
 
-    // Transform rupees → paise AFTER validation
     const amountInSmallestUnit = Math.round(amount * 100);
     const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
 
-    // Atomic insert (unchanged)
     const insert = db.prepare(`
       INSERT OR IGNORE INTO expenses 
       (id, amount, category, description, date, created_at, idempotency_key)
@@ -101,14 +111,13 @@ app.post("/expenses", validate(expenseSchema), (req, res) => {
     const info = insert.run(
       id,
       amountInSmallestUnit,
-      category, // already lowercased by z.enum
-      description, // already trimmed by z.string().trim()
-      date, // already normalized to YYYY-MM-DD by .transform()
+      category,
+      description,
+      date,
       created_at,
       idempotencyKey,
     );
 
-    // Always fetch after insert (unchanged)
     const expense = db
       .prepare("SELECT * FROM expenses WHERE idempotency_key = ?")
       .get(idempotencyKey);
@@ -128,13 +137,22 @@ app.post("/expenses", validate(expenseSchema), (req, res) => {
     }
   } catch (error) {
     console.error("Error processing expense:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return sendError(
+      res,
+      500,
+      "INTERNAL_SERVER_ERROR",
+      "An unexpected error occurred",
+    );
   }
 });
 
 app.get("/expenses", (req, res) => {
   try {
-    const { category, sort } = req.query;
+    let { category, sort, limit, offset } = req.query;
+
+    // Safe parse with defaults and hard cap
+    limit = Math.min(parseInt(limit) || 100, 500);
+    offset = Math.max(parseInt(offset) || 0, 0); // guard against negative offset
 
     let sql = "SELECT * FROM expenses";
     const params = [];
@@ -150,19 +168,38 @@ app.get("/expenses", (req, res) => {
       amount_desc: "ORDER BY amount DESC",
     };
 
-    const sortClause = SORT_OPTIONS[sort] || "ORDER BY date DESC";
-    sql += ` ${sortClause}`;
+    sql += ` ${SORT_OPTIONS[sort] || "ORDER BY date DESC"}`;
+    sql += " LIMIT ? OFFSET ?";
+    params.push(limit, offset);
 
     const expenses = db
       .prepare(sql)
       .all(...params)
       .map(({ idempotency_key, ...rest }) => rest);
 
-    res.status(200).json(expenses);
+    res.status(200).json({
+      count: expenses.length,
+      limit,
+      offset,
+      data: expenses,
+    });
   } catch (error) {
-    console.error("Error fetching expenses:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Fetch error:", error);
+    return sendError(res, 500, "FETCH_ERROR", "Failed to retrieve expenses");
   }
+});
+
+// ─────────────────────────────────────────
+// GLOBAL ERROR HANDLER (catches unhandled throws)
+// ─────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  return sendError(
+    res,
+    500,
+    "INTERNAL_SERVER_ERROR",
+    "An unexpected error occurred",
+  );
 });
 
 app.listen(PORT, () => {
