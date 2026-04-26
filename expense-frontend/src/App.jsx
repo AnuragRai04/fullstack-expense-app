@@ -1,28 +1,24 @@
 import { useState, useEffect } from "react";
+import CurrencyUtil from "./utils/currency";
 
 function App() {
   // --- STATE ---
   const [expenses, setExpenses] = useState([]);
 
-  // Form State
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("Food");
+  const [category, setCategory] = useState("food");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
 
-  // UI & Loading State
   const [filterCategory, setFilterCategory] = useState("");
   const [statusMessage, setStatusMessage] = useState({ text: "", type: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
   // --- ACTIONS ---
-
-  // 1. Fetch data from backend API (Handles Filtering & Sorting)
   const fetchExpenses = async () => {
     setIsFetching(true);
     try {
-      // Build the API URL with query parameters
       let url = "http://localhost:3000/expenses?sort=date_desc";
       if (filterCategory) {
         url += `&category=${filterCategory}`;
@@ -32,7 +28,8 @@ function App() {
       if (!response.ok) throw new Error("Failed to fetch data");
 
       const data = await response.json();
-      setExpenses(data);
+      // Backend now returns { count, limit, offset, data: [...] }
+      setExpenses(data.data ?? data);
     } catch (error) {
       console.error("Failed to fetch expenses:", error);
       setStatusMessage({
@@ -44,19 +41,15 @@ function App() {
     }
   };
 
-  // Run fetch on mount and whenever the filter category changes
   useEffect(() => {
     fetchExpenses();
   }, [filterCategory]);
 
-  // 2. Submit new expense
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setStatusMessage({ text: "", type: "" });
 
-    // Generate a secure UUID for the Idempotency-Key using the native Web Crypto API
-    // Fallback included just in case the browser environment restricts it
     const idempotencyKey =
       window.crypto && crypto.randomUUID
         ? crypto.randomUUID()
@@ -79,22 +72,22 @@ function App() {
 
       const result = await response.json();
 
-      if (response.status === 200) {
-        setStatusMessage({ text: "✅ " + result.message, type: "success" }); // Idempotency kicked in
-      } else if (response.status === 201) {
+      if (response.status === 201) {
         setStatusMessage({
           text: "🚀 Expense added successfully!",
           type: "success",
         });
-        // Clear form
         setAmount("");
         setDescription("");
         setDate("");
-        // Refresh the table via API to ensure sync
         fetchExpenses();
+      } else if (response.status === 200) {
+        setStatusMessage({ text: "✅ " + result.message, type: "success" });
       } else {
+        // Structured error from backend: { error: { code, message, field } }
+        const errMsg = result.error?.message ?? result.error ?? "Unknown error";
         setStatusMessage({
-          text: "❌ API Error: " + (result.error || "Unknown error"),
+          text: "❌ " + errMsg,
           type: "error",
         });
       }
@@ -104,13 +97,12 @@ function App() {
         type: "error",
       });
     } finally {
-      setIsSubmitting(false); // Re-enable the button
+      setIsSubmitting(false);
     }
   };
 
-  // --- CALCULATIONS ---
-  // Calculate total from the currently *visible* expenses fetched from the API
-  const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount / 100, 0);
+  // Total from currently visible expenses (amount stored as paise)
+  const totalInPaise = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   // --- UI RENDER ---
   return (
@@ -157,24 +149,27 @@ function App() {
           <input
             type="number"
             step="0.01"
-            placeholder="Amount"
+            placeholder="Amount (₹)"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             required
             style={inputStyle}
             disabled={isSubmitting}
           />
+
+          {/* ✅ Category values now match backend Zod enum exactly */}
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             style={inputStyle}
             disabled={isSubmitting}
           >
-            <option value="Food">Food</option>
-            <option value="Tech">Tech</option>
-            <option value="Transport">Transport</option>
-            <option value="Misc">Misc</option>
+            <option value="food">Food</option>
+            <option value="travel">Travel</option>
+            <option value="utilities">Utilities</option>
+            <option value="other">Other</option>
           </select>
+
           <input
             type="text"
             placeholder="Description"
@@ -210,6 +205,7 @@ function App() {
             {isSubmitting ? "Saving..." : "Save Expense"}
           </button>
         </form>
+
         {statusMessage.text && (
           <p
             style={{
@@ -237,6 +233,7 @@ function App() {
           <label style={{ fontWeight: "bold", marginRight: "10px" }}>
             Filter by Category:
           </label>
+          {/* ✅ Filter values match backend enum too */}
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
@@ -249,14 +246,16 @@ function App() {
             }}
           >
             <option value="">All Categories</option>
-            <option value="Food">Food</option>
-            <option value="Tech">Tech</option>
-            <option value="Transport">Transport</option>
-            <option value="Misc">Misc</option>
+            <option value="food">Food</option>
+            <option value="travel">Travel</option>
+            <option value="utilities">Utilities</option>
+            <option value="other">Other</option>
           </select>
         </div>
+
+        {/* ✅ CurrencyUtil handles paise → ₹ formatting */}
         <h2 style={{ margin: 0, color: "#51cf66" }}>
-          Total: ₹{totalAmount.toFixed(2)}
+          Total: {CurrencyUtil.formatINR(totalInPaise)}
         </h2>
       </div>
 
@@ -298,7 +297,8 @@ function App() {
                 <td style={tdStyle}>{exp.date}</td>
                 <td style={tdStyle}>{exp.category}</td>
                 <td style={tdStyle}>{exp.description}</td>
-                <td style={tdStyle}>₹{(exp.amount / 100).toFixed(2)}</td>
+                {/* ✅ CurrencyUtil for per-row display */}
+                <td style={tdStyle}>{CurrencyUtil.formatINR(exp.amount)}</td>
               </tr>
             ))
           )}
@@ -308,7 +308,6 @@ function App() {
   );
 }
 
-// Adjusted styles to match the dark theme you were running
 const inputStyle = {
   padding: "10px",
   borderRadius: "4px",
