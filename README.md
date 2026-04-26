@@ -54,6 +54,10 @@ A full-stack expense tracking application built with a focus on data integrity, 
    ```
 
 2. **Frontend**
+
+   ```bash
    cd expense-frontend
    npm install
    npm run dev
+
+   ```
